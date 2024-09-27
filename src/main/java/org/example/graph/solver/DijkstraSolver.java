@@ -1,5 +1,4 @@
 package org.example.graph.solver;
-
 import org.example.graph.model.graph.DirectedGraph;
 import org.example.graph.model.graph.Edge;
 import org.example.graph.model.graph.Node;
