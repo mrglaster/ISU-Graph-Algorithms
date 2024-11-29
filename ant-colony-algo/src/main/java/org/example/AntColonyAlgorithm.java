@@ -16,10 +16,14 @@ public class AntColonyAlgorithm {
     private static int NUM_CITIES = 51;
 
     // Number of ants used in the algorithm
-    private static final int NUM_ANTS = 10;
+    private static final int NUM_ANTS = 1;
+
+    private static final double BINOMIAL_P = 0.5;
 
     // Maximum number of iterations for the algorithm
     private static final int MAX_ITERATIONS = 1000;
+
+    private static final boolean isBidirectional = false;
 
     // Evaporation rate of pheromones
     private static final double EVAPORATION_RATE = 0.01;
@@ -35,11 +39,13 @@ public class AntColonyAlgorithm {
     private static double[][] pheromone;
     private static double[][] distance;
 
+    private static final int K_PLOT_ANT = 1;
+
     // Random number generator
     private static Random random;
 
     // List to store the Y-axis data for chart plotting
-    List<Integer> chartYData = new ArrayList<>();
+    List<Integer> chartBestOnIterationY = new ArrayList<>();
 
     // Default constructor
     public AntColonyAlgorithm(){
@@ -65,10 +71,12 @@ public class AntColonyAlgorithm {
         List<Integer> bestPath;
 
 
+        List<Integer> specificAntResultsPaths = new ArrayList<>();
+
 
         // Iterate through the maximum number of iterations
         for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-            List<List<Integer>> antPaths = new ArrayList<>();
+            List<List<Integer>> antBestPaths = new ArrayList<>();
             int iterationBestPathValue = 999999;
             List<Integer> iterationsBestPath = null;
             // Each ant constructs a solution
@@ -76,35 +84,64 @@ public class AntColonyAlgorithm {
                 List<Integer> currentBestPath = constructSolution();
                 if (currentBestPath != null){
                     int pathValue = (int) calculatePathLength(currentBestPath);
+                    if (ant == K_PLOT_ANT || NUM_ANTS == 1) {
+                        specificAntResultsPaths.add(pathValue);
+                    }
                     if (pathValue < iterationBestPathValue){
                         iterationBestPathValue = pathValue;
                         iterationsBestPath = currentBestPath;
                     }
                 }
-                antPaths.add(iterationsBestPath);
-                updatePheromones(antPaths);
+                antBestPaths.add(iterationsBestPath);
+                updatePheromones(antBestPaths);
             }
+
             if (iterationsBestPath != null){
-                cntr += 1;
                 System.out.println("Iteration #" + cntr);
                 System.out.println("Best path length for iteration #" + cntr + " " + iterationBestPathValue);
-                chartYData.add((int)calculatePathLength(iterationsBestPath));
+                chartBestOnIterationY.add((int)calculatePathLength(iterationsBestPath));
                 System.out.println();
             }
         }
 
-        // Find the best path after all iterations
         bestPath = constructSolution();
         if (bestPath != null) {
             System.out.println("Best Path: " + bestPath);
             System.out.println("Best Path Length: " + calculatePathLength(bestPath));
+
         } else {
             System.out.println("Unable to construct a path.");
         }
 
-        // Plot the chart with the collected data
-        AntChartPlotter.plotChart(chartYData);
+        AntChartPlotter.plotCharts(chartBestOnIterationY, specificAntResultsPaths, K_PLOT_ANT);
     }
+
+
+    public static int getBinomial(int n, double p) {
+        // Calculate the logarithm of the probability of failure (1 - p)
+        double log_q = Math.log(1.0 - p);
+
+        // Initialize the count of successes (x) to 0
+        int x = 0;
+
+        // Initialize the cumulative sum of logarithms
+        double sum = 0;
+
+        // Loop indefinitely until the stopping condition is met
+        for(;;) {
+            // Add the logarithm of a random value scaled by the remaining trials
+            sum += Math.log(random.nextFloat()) / (n - x);
+
+            // If the cumulative sum is less than log_q, return the current count of successes
+            if(sum < log_q) {
+                return x;
+            }
+
+            // Increment the count of successes
+            x++;
+        }
+    }
+
 
     // Initialize the distance matrix from the graph file
     private static void initializeDistances() {
@@ -127,6 +164,9 @@ public class AntColonyAlgorithm {
                     int second = Integer.parseInt(row[1]);
                     int dist = Integer.parseInt(row[2]);
                     distance[first][second] = dist;
+                    if (isBidirectional){
+                        distance[second][first] = dist;
+                    }
                 } else {
                     System.out.println("Invalid line format: " + line);
                 }
@@ -153,7 +193,8 @@ public class AntColonyAlgorithm {
             unvisited.add(i);
         }
 
-        int currentCity = random.nextInt(NUM_CITIES);
+        //int currentCity = random.nextInt(NUM_CITIES);
+        int currentCity = getBinomial(NUM_CITIES, BINOMIAL_P);
         path.add(currentCity);
         unvisited.remove((Integer) currentCity);
 
@@ -220,6 +261,9 @@ public class AntColonyAlgorithm {
                     int from = path.get(i);
                     int to = path.get(i + 1);
                     pheromone[from][to] += pheromoneDelta;
+                    if (isBidirectional){
+                        pheromone[to][from] += pheromoneDelta;
+                    }
                 }
             }
         }
