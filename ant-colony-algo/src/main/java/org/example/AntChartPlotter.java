@@ -18,8 +18,6 @@ public class AntChartPlotter {
 
     public static void plotCharts(List<Integer> chartYData, List<Integer> iterationResults, int antNumber) {
 
-        // Создаем первый набор данных (для chartYData)
-        System.out.println("SIZE IS: " + chartYData.size());
         XYSeries series1 = new XYSeries("Data");
         for (int i = 0; i < chartYData.size(); i++) {
             series1.add(i, chartYData.get(i));
@@ -65,7 +63,7 @@ public class AntChartPlotter {
 
         // Настраиваем ось X для второго графика
         XYPlot plot2 = lineChart2.getXYPlot();
-        NumberAxis domainAxis2 = new NumberAxis("Successful iteration (X)");
+        NumberAxis domainAxis2 = new NumberAxis("Iteration (X)");
         domainAxis2.setTickUnit(new NumberTickUnit(1000)); // Устанавливаем интервал в 1000
         plot2.setDomainAxis(domainAxis2);
         plot2.setRenderer(new XYLineAndShapeRenderer());
