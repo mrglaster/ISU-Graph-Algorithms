@@ -1,5 +1,4 @@
 package org.example;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -7,8 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-// TODO Block Scheme
-// Plot fix
 public class AntColonyAlgorithm {
 
     // Path to the graph file
@@ -19,17 +16,17 @@ public class AntColonyAlgorithm {
     private static int NUM_CITIES = 51;
 
     // Number of ants used in the algorithm
-    private static final int NUM_ANTS = 100;
+    private static final int NUM_ANTS = 10;
 
     // Maximum number of iterations for the algorithm
-    private static final int MAX_ITERATIONS = 100000;
+    private static final int MAX_ITERATIONS = 1000;
 
     // Evaporation rate of pheromones
-    private static final double EVAPORATION_RATE = 0.2;
+    private static final double EVAPORATION_RATE = 0.01;
 
     // Parameters for the pheromone and distance influence
     private static final double ALPHA = 1.0;
-    private static final double BETA = 2.0;
+    private static final double BETA = 1.0;
 
     // Pheromone deposit constant
     private static final double Q = 1.0;
@@ -67,25 +64,31 @@ public class AntColonyAlgorithm {
         int cntr = 0;
         List<Integer> bestPath;
 
+
+
         // Iterate through the maximum number of iterations
         for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
             List<List<Integer>> antPaths = new ArrayList<>();
-
+            int iterationBestPathValue = 999999;
+            List<Integer> iterationsBestPath = null;
             // Each ant constructs a solution
             for (int ant = 0; ant < NUM_ANTS; ant++) {
-                antPaths.add(constructSolution());
+                List<Integer> currentBestPath = constructSolution();
+                if (currentBestPath != null){
+                    int pathValue = (int) calculatePathLength(currentBestPath);
+                    if (pathValue < iterationBestPathValue){
+                        iterationBestPathValue = pathValue;
+                        iterationsBestPath = currentBestPath;
+                    }
+                }
+                antPaths.add(iterationsBestPath);
+                updatePheromones(antPaths);
             }
-
-            // Update pheromones based on the constructed solutions
-            updatePheromones(antPaths);
-
-            // Find the best path for the current iteration
-            bestPath = constructSolution();
-            if (bestPath != null){
+            if (iterationsBestPath != null){
                 cntr += 1;
                 System.out.println("Iteration #" + cntr);
-                System.out.println("Best path length for iteration #" + cntr + " " + calculatePathLength(bestPath));
-                chartYData.add((int)calculatePathLength(bestPath));
+                System.out.println("Best path length for iteration #" + cntr + " " + iterationBestPathValue);
+                chartYData.add((int)calculatePathLength(iterationsBestPath));
                 System.out.println();
             }
         }
@@ -100,7 +103,7 @@ public class AntColonyAlgorithm {
         }
 
         // Plot the chart with the collected data
-        //AntChartPlotter.plotChart(chartYData);
+        AntChartPlotter.plotChart(chartYData);
     }
 
     // Initialize the distance matrix from the graph file
@@ -229,6 +232,10 @@ public class AntColonyAlgorithm {
             int from = path.get(i);
             int to = path.get(i + 1);
             length += distance[from][to];
+        }
+        double latest_path_part = distance[path.get(path.size() - 1)][path.get(0)];
+        if (latest_path_part != -1){
+            length += distance[path.get(path.size() - 1)][path.get(0)];
         }
         return length;
     }
