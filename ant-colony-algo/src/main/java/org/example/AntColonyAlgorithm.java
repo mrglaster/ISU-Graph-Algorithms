@@ -16,7 +16,7 @@ public class AntColonyAlgorithm {
     private static int NUM_CITIES = 51;
 
     // Number of ants used in the algorithm
-    private static final int NUM_ANTS = 1;
+    private static final int NUM_ANTS = 10;
 
     private static final double BINOMIAL_P = 0.5;
 
@@ -29,7 +29,7 @@ public class AntColonyAlgorithm {
     private static final double EVAPORATION_RATE = 0.01;
 
     // Parameters for the pheromone and distance influence
-    private static final double ALPHA = 1.0;
+    private static final double ALPHA = 3.0;
     private static final double BETA = 1.0;
 
     // Pheromone deposit constant
@@ -46,6 +46,11 @@ public class AntColonyAlgorithm {
 
     // List to store the Y-axis data for chart plotting
     List<Integer> chartBestOnIterationY = new ArrayList<>();
+
+    List<Double> probabilitiesBestPathY = new ArrayList<>();
+    List<Double> pheromoneSumBestPathY = new ArrayList<>();
+
+
 
     // Default constructor
     public AntColonyAlgorithm(){
@@ -64,7 +69,7 @@ public class AntColonyAlgorithm {
     }
 
     // Main method to solve the problem using the Ant Colony Algorithm
-    public void solve(){
+    public void solve(double alphaAntsPercent){
         initializeDistances();
         initializePheromones();
         int cntr = 0;
@@ -76,26 +81,32 @@ public class AntColonyAlgorithm {
 
         // Iterate through the maximum number of iterations
         for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+            cntr += 1;
             List<List<Integer>> antBestPaths = new ArrayList<>();
             int iterationBestPathValue = 999999;
             List<Integer> iterationsBestPath = null;
             // Each ant constructs a solution
             for (int ant = 0; ant < NUM_ANTS; ant++) {
-                List<Integer> currentBestPath = constructSolution();
-                if (currentBestPath != null){
+                boolean isAlphaAnt = ant < NUM_ANTS * alphaAntsPercent;
+                List<Integer> currentBestPath = constructSolution(isAlphaAnt);
+                if (currentBestPath != null) {
                     int pathValue = (int) calculatePathLength(currentBestPath);
                     if (ant == K_PLOT_ANT || NUM_ANTS == 1) {
                         specificAntResultsPaths.add(pathValue);
                     }
-                    if (pathValue < iterationBestPathValue){
+                    if (pathValue < iterationBestPathValue) {
                         iterationBestPathValue = pathValue;
                         iterationsBestPath = currentBestPath;
                     }
                 }
                 antBestPaths.add(iterationsBestPath);
-                updatePheromones(antBestPaths);
+                //updatePheromones(antBestPaths);
             }
-
+            double bestPheromones = calculatePheromoneSum(iterationsBestPath);
+            double probability = calculatePathProbability(iterationsBestPath);
+            pheromoneSumBestPathY.add(bestPheromones);
+            probabilitiesBestPathY.add(probability);
+            updatePheromones(antBestPaths);
             if (iterationsBestPath != null){
                 System.out.println("Iteration #" + cntr);
                 System.out.println("Best path length for iteration #" + cntr + " " + iterationBestPathValue);
@@ -104,7 +115,7 @@ public class AntColonyAlgorithm {
             }
         }
 
-        bestPath = constructSolution();
+        bestPath = constructSolution(false);
         if (bestPath != null) {
             System.out.println("Best Path: " + bestPath);
             System.out.println("Best Path Length: " + calculatePathLength(bestPath));
@@ -113,7 +124,7 @@ public class AntColonyAlgorithm {
             System.out.println("Unable to construct a path.");
         }
 
-        AntChartPlotter.plotCharts(chartBestOnIterationY, specificAntResultsPaths, K_PLOT_ANT);
+        AntChartPlotter.plotCharts(chartBestOnIterationY, specificAntResultsPaths, probabilitiesBestPathY, pheromoneSumBestPathY, K_PLOT_ANT);
     }
 
 
@@ -185,8 +196,10 @@ public class AntColonyAlgorithm {
         }
     }
 
+
+
     // Construct a solution (path) for an ant
-    private static List<Integer> constructSolution() {
+    private static List<Integer> constructSolution(boolean isAlpha) {
         List<Integer> path = new ArrayList<>();
         List<Integer> unvisited = new ArrayList<>();
         for (int i = 0; i < NUM_CITIES; i++) {
@@ -199,7 +212,7 @@ public class AntColonyAlgorithm {
         unvisited.remove((Integer) currentCity);
 
         while (!unvisited.isEmpty()) {
-            int nextCity = selectNextCity(currentCity, unvisited);
+            int nextCity = selectNextCity(currentCity, unvisited, isAlpha);
             if (nextCity == -1) {
                 return null;
             }
@@ -212,7 +225,7 @@ public class AntColonyAlgorithm {
     }
 
     // Select the next city to visit based on pheromone and distance
-    private static int selectNextCity(int currentCity, List<Integer> unvisited) {
+    private static int selectNextCity(int currentCity, List<Integer> unvisited, boolean isAlpha) {
         double[] probabilities = new double[unvisited.size()];
         double sum = 0.0;
 
@@ -222,7 +235,11 @@ public class AntColonyAlgorithm {
                 // If the path does not exist, the transition probability is 0
                 probabilities[i] = 0;
             } else {
-                probabilities[i] = Math.pow(pheromone[currentCity][nextCity], ALPHA) * Math.pow(1.0 / distance[currentCity][nextCity], BETA);
+                double localAlpha = ALPHA;
+                if (isAlpha){
+                    localAlpha = 0;
+                }
+                probabilities[i] = Math.pow(pheromone[currentCity][nextCity], localAlpha) * Math.pow(1.0 / distance[currentCity][nextCity], BETA);
                 sum += probabilities[i];
             }
         }
@@ -283,4 +300,47 @@ public class AntColonyAlgorithm {
         }
         return length;
     }
+
+    private double calculatePathProbability(List<Integer> path) {
+        if (path == null || path.size() < 2) {
+            return 0.0;
+        }
+        double probability = 1.0;
+        for (int i = 0; i < path.size() - 1; i++) {
+            int from = path.get(i);
+            int to = path.get(i + 1);
+            double pheromoneValue = pheromone[from][to];
+            double totalPheromone = 0.0;
+            for (int j = 0; j < NUM_CITIES; j++) {
+                if (distance[from][j] != -1) {
+                    totalPheromone += pheromone[from][j];
+                }
+            }
+            if (totalPheromone > 0) {
+                probability *= pheromoneValue / totalPheromone;
+            }
+        }
+        return probability;
+    }
+
+    private double calculatePheromoneSum(List<Integer> path) {
+        if (path == null || path.size() < 2) {
+            return 0.0;
+        }
+        double sum = 0.0;
+        for (int i = 0; i < path.size() - 1; i++) {
+            int from = path.get(i);
+            int to = path.get(i + 1);
+            sum += pheromone[from][to];
+        }
+
+        double globalSum = 0.0;
+        for (int i = 0; i <NUM_CITIES ; i++) {
+            for (int j = 0; j < NUM_CITIES; j++){
+                globalSum += pheromone[i][j];
+            }
+        }
+        return sum/globalSum;
+    }
+
 }
